@@ -5,14 +5,11 @@ import psycopg2
 import time
 # Conexão
 conn = psycopg2.connect(
-    host="xxxxxxx",
-    database="xxxxxx",
+    host="xxxxxxxx",
+    database="xxxxxxx",
     user="xxxxxxx",
     password="xxxxxxx"
 )
-# Crie um cursor para executar consultas
-cur = conn.cursor()
-
 class aluno:
     def __init__(self, user, password):
         self.user =user
@@ -25,7 +22,9 @@ print('''
       2-Lorena
       3-Vinicius
       ''')
+
 cur = conn.cursor()
+
 try:
     option = int(input("opção: "))
 
@@ -57,7 +56,7 @@ usuario = aluno(user,password)
 cur.close()
 conn.close()
 
-
+#abrir navegador
 servico = Service(ChromeDriverManager().install())
 option = webdriver.ChromeOptions()
 option.add_argument('--headless')
@@ -69,11 +68,21 @@ navegador.find_element('xpath','//*[@id="Senha"]').send_keys(usuario.password)
 navegador.find_element('xpath','//*[@id="btn-login"]').click()
 navegador.find_element('xpath','//*[@id="nav-home"]/li[11]/a').click()
 
+#Tratar erro e atualizar se não estiver aberto
+varCountXpath = 0
 while True:
     try:
-        navegador.find_element('xpath','//*[@id="cadastrar-5"]').click() #atualizar o xpath
+        xpath = f'//*[@id="cadastrar-{varCountXpath}"]'
+        navegador.find_element('xpath',xpath).click() #atualizar o xpath
+        print("Presença cadastrada!")
         break
     except:
-        print("Presença ainda não aberta\nTentando novamente em 60s...")
-        time.sleep(60)
-        navegador.refresh()
+        varCountXpath += 1
+        if(varCountXpath == 10):
+            print("Presença ainda não aberta\nTentando novamente em 60s...")
+            varCountXpath = 0
+            time.sleep(60)
+            navegador.refresh()
+
+#fechar navegador            
+navegador.close()
