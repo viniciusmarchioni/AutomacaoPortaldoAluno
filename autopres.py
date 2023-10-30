@@ -3,86 +3,70 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 import psycopg2
 import time
-# Conexão
+
+
 conn = psycopg2.connect(
-    host="xxxxxxxx",
-    database="xxxxxxx",
-    user="xxxxxxx",
-    password="xxxxxxx"
-)
+    host="xxxxxxxx", database="xxxxxxxx", user="xxxxxxxx", password="xxxxxxxx"
+)  # Acesso postgresql
+
+
 class aluno:
     def __init__(self, user, password):
-        self.user =user
+        self.user = user
         self.password = password
-    
-print('''
-      Presença automatica:
-      0-Arnaldo
-      1-Enzo
-      2-Lorena
-      3-Vinicius
-      ''')
 
-cur = conn.cursor()
 
-try:
-    option = int(input("opção: "))
+cur = conn.cursor()  # Criando acesso ao banco de dados
+servico = Service(ChromeDriverManager().install())  # Instalando o navegador
 
-    while(option<0 or option>3):
-        option = int(input("opção: "))
-except:
-    print("COLOCA A PORRA DE UM NUMERO")
-    option = int(input("opção: "))
+cur.execute("select max(id) from alunos")
+size = cur.fetchone()[0]
 
-    while(option<0 or option>3):
-        option = int(input("opção: "))
 
-options_p_nomes = {
-    0: 'Arnaldo',
-    1: 'Enzo',
-    2: 'Lorena',
-    3: 'Vinicius'
-}
+def main(option):
+    cur.execute(f"SELECT usuario FROM alunos WHERE id = {option};")
+    user = cur.fetchone()[0]
+    cur.execute(f"SELECT senha FROM alunos WHERE id = {option};")
+    password = cur.fetchone()[0]
+    usuario = aluno(user, password)
 
-nome = options_p_nomes[option]
+    option = webdriver.ChromeOptions()
+    option.add_argument("--headless")
 
-cur.execute("select usuario from alunos where nome = '"+nome+"';")
-user = cur.fetchone()[0]
-cur.execute("select senha from alunos where nome = '"+nome+"';")
-password = cur.fetchone()[0]
-usuario = aluno(user,password)
+    navegador = webdriver.Chrome(options=option, service=servico)
+    navegador.get(
+        "https://interage.fei.org.br/secureserver/portal/graduacao/sala-dos-professores/aulas/presenca"
+    )
+    navegador.find_element("xpath", '//*[@id="Usuario"]').send_keys(usuario.user)
+    navegador.find_element("xpath", '//*[@id="Senha"]').send_keys(usuario.password)
+    navegador.find_element("xpath", '//*[@id="btn-login"]').click()
 
-# Feche o cursor e a conexão
-cur.close()
-conn.close()
+    varCountXpath = 0
+    while True:
+        try:
+            xpath = f'//*[@id="cadastrar-{varCountXpath}"]'
+            navegador.find_element(
+                "xpath", xpath
+            ).click()  # Atualizar o xpath da presença
+            print("Presença cadastrada!")
+            navegador.close()
+            break
 
-#abrir navegador
-servico = Service(ChromeDriverManager().install())
-option = webdriver.ChromeOptions()
-option.add_argument('--headless')
+        except:
+            varCountXpath += 1
+            if varCountXpath == 10:
+                print("Presença ainda não aberta\nTentando novamente em 60s...")
+                time.sleep(60)
+                varCountXpath = 0
+                navegador.refresh()
+                if (
+                    navegador.current_url
+                    != "https://interage.fei.org.br/secureserver/portal/graduacao/sala-dos-professores/aulas/presenca"
+                ):
+                    return "Algo deu errado"
 
-navegador = webdriver.Chrome(options=option,service=servico)
-navegador.get("https://interage.fei.org.br/secureserver/portal/")
-navegador.find_element('xpath','//*[@id="Usuario"]').send_keys(usuario.user)
-navegador.find_element('xpath','//*[@id="Senha"]').send_keys(usuario.password)
-navegador.find_element('xpath','//*[@id="btn-login"]').click()
-navegador.find_element('xpath','//*[@id="nav-home"]/li[11]/a').click()
 
-#Tratar erro e atualizar se não estiver aberto
-varCountXpath = 0
-while True:
-    try:
-        xpath = f'//*[@id="cadastrar-{varCountXpath}"]'
-        navegador.find_element('xpath',xpath).click() #atualizar o xpath
-        print("Presença cadastrada!")
-        break
-    except:
-        varCountXpath += 1
-        if(varCountXpath == 10):
-            print("Presença ainda não aberta\nTentando novamente em 60s...")
-            varCountXpath = 0
-            time.sleep(60)
-            navegador.refresh()
+for i in range(1, size + 1):
+    main(i)
 
-#fechar navegador            
-navegador.close()
+conn.close()  # Fechando conexão com banco de dados
